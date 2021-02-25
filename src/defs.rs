@@ -1,11 +1,8 @@
-/// TEA5767 I2C slave address
-pub(crate) const DEVICE_ADDRESS: u32 =  0x60;
-
 /// TEA5767 device driver
 #[derive(Debug)]
 pub struct TEA5767<I2C> {
     pub(crate) i2c: I2C,
-    pub(crate) address: u32,
+    pub(crate) address: u8,
     pub(crate) frequency: f32,
     pub(crate) band_limits: BandLimits,
     pub(crate) standby: bool,

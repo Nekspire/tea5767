@@ -1,4 +1,5 @@
 use super::defs::*;
+use super::regs;
 use embedded_hal::blocking::i2c;
 
 impl<I2C, E> TEA5767<I2C>
@@ -10,7 +11,7 @@ where
                sound_mode: SoundMode) -> Result<Self, E> {
         let tea5767 = TEA5767 {
             i2c,
-            address: DEVICE_ADDRESS,
+            address: regs::DEVICE_ADDRESS,
             frequency,
             band_limits,
             standby: false,

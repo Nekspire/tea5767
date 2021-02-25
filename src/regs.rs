@@ -1,7 +1,10 @@
-use embedded_hal::blocking::i2c;
-use bitflags;
+use embedded_hal::blocking::i2c::{Write, Read};
+
+pub(crate) const DEVICE_ADDRESS: u8 =  0x60;
 
 mod write_mode {
+    use bitflags::bitflags;
+
     bitflags! {
         pub struct DataByte1: u8 {
             const MUTE = 0b1000_0000;
@@ -63,6 +66,7 @@ mod write_mode {
 }
 
 mod read_mode {
+    use bitflags::bitflags;
     bitflags! {
         pub struct DataByte1: u8 {
             const RF = 0b1000_0000;
@@ -121,6 +125,17 @@ mod read_mode {
     }
 }
 
+pub fn write_data<I2C>(i2c: &mut I2C, data: [u8; 5]) -> Result<(), I2C::Error>
+where I2C: Write,
+{
+    i2c.write(DEVICE_ADDRESS, &data)
+}
+
+pub fn read_data<I2C>(i2c: &mut I2C, mut data: [u8; 5]) -> Result<(), I2C::Error>
+where I2C: Read,
+{
+    i2c.read(DEVICE_ADDRESS, &mut data)
+}
 
 #[cfg(test)]
 mod tests {
