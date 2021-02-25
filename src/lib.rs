@@ -2,5 +2,5 @@
 #![no_std]
 
 mod regs;
-pub mod core;
+pub mod device;
 mod defs;
