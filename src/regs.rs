@@ -134,7 +134,7 @@ where I2C: Write,
 pub fn read_data<I2C>(i2c: &mut I2C, mut data: [u8; 5]) -> Result<(), I2C::Error>
 where I2C: Read,
 {
-    i2c.read(DEVICE_ADDRESS, &mut data)
+    i2c.read(DEVICE_ADDRESS,&mut data)
 }
 
 #[cfg(test)]
