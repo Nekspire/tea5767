@@ -1,6 +1,7 @@
 use super::defs::*;
 use super::regs;
 use embedded_hal::blocking::i2c;
+use bit_field::BitField;
 
 impl<I2C, E> TEA5767<I2C>
 where
@@ -84,14 +85,16 @@ fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency
     Some(numerator / f_ref)
 }
 
-fn to_register_format_pll(decimal: u32) -> Option<u32> {
+fn to_register_format_pll(decimal: u32) -> Option<[u8; 2]> {
     // use bit_field del this
-    Some(decimal)
+    let pll_binary = [decimal.get_bits(8..14) as u8,
+        decimal.get_bits(0..8) as u8];
+    Some(pll_binary)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::device::to_decimal_pll;
+    use crate::device::*;
     use crate::defs::{InjectionSide, ClockFrequency};
 
     #[test]
@@ -99,5 +102,9 @@ mod tests {
         assert_eq!(to_decimal_pll(InjectionSide::HighSide,
                                   ClockFrequency::Clk32_768Khz,
         89.9).unwrap(), 11001);
+    }
+    #[test]
+    fn test_to_register_format_pll() {
+        assert_eq!(to_register_format_pll(11001).unwrap(),[0b0010_1010, 0b1111_1001]);
     }
 }
