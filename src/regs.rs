@@ -1,129 +1,7 @@
 use embedded_hal::blocking::i2c::{Write, Read};
+use core::ops::Range;
 
-pub(crate) const DEVICE_ADDRESS: u8 =  0x60;
-
-mod write_mode {
-    use bitflags::bitflags;
-
-    bitflags! {
-        pub struct DataByte1: u8 {
-            const MUTE = 0b1000_0000;
-            const SM = 0b0100_0000;
-            const PLL13 = 0b0010_0000;
-            const PLL12 = 0b0001_0000;
-            const PLL11 = 0b0000_1000;
-            const PLL10 = 0b0000_0100;
-            const PLL9 = 0b0000_0010;
-            const PLL8 = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte2: u8 {
-            const PLL7 = 0b1000_0000;
-            const PLL6 = 0b0100_0000;
-            const PLL5 = 0b0010_0000;
-            const PLL4 = 0b0001_0000;
-            const PLL3 = 0b0000_1000;
-            const PLL2 = 0b0000_0100;
-            const PLL1 = 0b0000_0010;
-            const PLL0 = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte3: u8 {
-            const SUD = 0b1000_0000;
-            const SSL1 = 0b0100_0000;
-            const SSL0 = 0b0010_0000;
-            const HLSI = 0b0001_0000;
-            const MS = 0b0000_1000;
-            const MR = 0b0000_0100;
-            const ML = 0b0000_0010;
-            const SWP1 = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte4: u8 {
-            const SWP2 = 0b1000_0000;
-            const STBY = 0b0100_0000;
-            const BL = 0b0010_0000;
-            const XTAL = 0b0001_0000;
-            const SMUTE = 0b0000_1000;
-            const HCC = 0b0000_0100;
-            const SNC = 0b0000_0010;
-            const SI = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte5: u8 {
-            const PLLREF = 0b1000_0000;
-            const DTC = 0b0100_0000;
-        }
-    }
-}
-
-mod read_mode {
-    use bitflags::bitflags;
-    bitflags! {
-        pub struct DataByte1: u8 {
-            const RF = 0b1000_0000;
-            const BLF = 0b0100_0000;
-            const PLL13 = 0b0010_0000;
-            const PLL12 = 0b0001_0000;
-            const PLL11 = 0b0000_1000;
-            const PLL10= 0b0000_0100;
-            const PLL9 = 0b0000_0010;
-            const PLL8 = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte2: u8 {
-            const PLL7 = 0b1000_0000;
-            const PLL6 = 0b0100_0000;
-            const PLL5 = 0b0010_0000;
-            const PLL4 = 0b0001_0000;
-            const PLL3 = 0b0000_1000;
-            const PLL2= 0b0000_0100;
-            const PLL1 = 0b0000_0010;
-            const PLL0 = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte3: u8 {
-            const STEREO = 0b1000_0000;
-            const IF6 = 0b0100_0000;
-            const IF5 = 0b0010_0000;
-            const IF4 = 0b0001_0000;
-            const IF3 = 0b0000_1000;
-            const IF2 = 0b0000_0100;
-            const IF1 = 0b0000_0010;
-            const IF0 = 0b0000_0001;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte4: u8 {
-            const LEV3 = 0b1000_0000;
-            const LEV2 = 0b0100_0000;
-            const LEV1 = 0b0010_0000;
-            const LEV0 = 0b0001_0000;
-            const CI3 = 0b0000_1000;
-            const CI2 = 0b0000_0100;
-            const CI1 = 0b0000_0010;
-        }
-    }
-
-    bitflags! {
-        pub struct DataByte5: u8 {
-            const RESERVED = 0b0000_0000;
-        }
-    }
-}
+pub const DEVICE_ADDRESS: u8 =  0x60;
 
 pub fn write_data<I2C>(i2c: &mut I2C, data: [u8; 5]) -> Result<(), I2C::Error>
 where I2C: Write,
@@ -136,6 +14,53 @@ where I2C: Read,
 {
     i2c.read(DEVICE_ADDRESS,&mut data)
 }
+
+//Write mode DataByte1
+pub const WM_DB1_MUTE: usize = 7;
+pub const WM_DB1_SM: usize = 6;
+pub const WM_DB1_PLL: Range<usize> = 0..6;
+
+//Write mode DataByte2
+pub const WM_DB2_PLL: Range<usize> = 0..8;
+
+//Write mode DataByte3
+pub const WM_DB3_SUD: usize = 7;
+pub const WM_DB3_SSL: Range<usize> = 5..7;
+pub const WM_DB3_HLSI: usize = 4;
+pub const WM_DB3_MS: usize = 3;
+pub const WM_DB3_MR: usize = 2;
+pub const WM_DB3_ML: usize = 1;
+pub const WM_DB3_SWP1: usize = 0;
+
+//Write mode DataByte4
+pub const WM_DB4_SWP2: usize = 7;
+pub const WM_DB4_STBY: usize = 6;
+pub const WM_DB4_BL: usize = 5;
+pub const WM_DB4_XTAL: usize = 4;
+pub const WM_DB4_SMUTE: usize = 3;
+pub const WM_DB4_HCC: usize = 2;
+pub const WM_DB4_SNC: usize = 1;
+pub const WM_DB4_SI: usize = 0;
+
+//Write mode DataByte5
+pub const WM_DB4_PLLREF: usize = 7;
+pub const WM_DB4_DTC: usize = 6;
+
+//Read mode DataByte1
+pub const RM_DB1_RF: usize = 7;
+pub const RM_DB1_BLF: usize = 6;
+pub const RM_DB1_PLL: Range<usize> = 0..6;
+
+//Read mode DataByte2
+pub const RM_DB2_PLL: Range<usize> = 0..8;
+
+//Read mode DataByte3
+pub const RM_DB3_STEREO: usize = 7;
+pub const WM_DB3_IF: Range<usize> = 0..6;
+
+//Read mode DataByte4
+pub const RM_DB4_LEV: Range<usize> = 4..8;
+pub const RM_DB4_CI: Range<usize> = 1..4;
 
 #[cfg(test)]
 mod tests {

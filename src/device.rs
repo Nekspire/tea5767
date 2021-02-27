@@ -1,7 +1,9 @@
 use super::defs::*;
-use super::regs;
+use super::regs::*;
+use super::regs::DEVICE_ADDRESS;
 use embedded_hal::blocking::i2c;
-use bit_field::BitField;
+use bit_field::{BitField, BitArray};
+use core::any::Any;
 
 impl<I2C, E> TEA5767<I2C>
 where
@@ -12,7 +14,7 @@ where
                sound_mode: SoundMode) -> Result<Self, E> {
         let tea5767 = TEA5767 {
             i2c,
-            address: regs::DEVICE_ADDRESS,
+            address: DEVICE_ADDRESS,
             frequency,
             band_limits,
             standby: false,
@@ -38,9 +40,9 @@ where
         Some(self.i2c)
     }
 
-    /// Write all data to registers
+    /// Write preconfigured values to the device registers
     fn upload(&mut self) -> Result<(), E> {
-        let buffer: [u8; 5];
+        let mut write_bytes: [u8; 5] =  [0; 5];
         match self.band_limits {
             BandLimits::EuropeUS => {
                 if self.frequency < 87.5 {
@@ -59,6 +61,61 @@ where
                 }
             }
         }
+
+        let pll = to_register_format_pll(
+            to_decimal_pll(self.injection_side, self.clock_frequency, self.frequency)
+                .unwrap()
+        ).unwrap();
+
+        write_bytes[0] = pll[0];
+        write_bytes[1] = pll[1];
+
+        match self.mute {
+            MuteChannel::Both => write_bytes.get_mut(0).unwrap()
+                .set_bit(WM_DB1_MUTE, true),
+            _ => write_bytes.get(0).unwrap()
+        };
+
+        match self.search_mode {
+            true => write_bytes.get_mut(0).unwrap()
+                .set_bit(WM_DB1_SM, true),
+            _ => write_bytes.get(0).unwrap()
+        };
+
+        match self.search_mode_dir {
+            SearchModeDirection::Up => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_SUD, true),
+            _ => write_bytes.get(2).unwrap()
+        };
+
+        match self.search_adc_level {
+            SearchAdcLevel::Low => write_bytes.get_mut(2).unwrap()
+                .set_bits(WM_DB3_SSL, 0b01), // TODO names of bits
+            SearchAdcLevel::Mid => write_bytes.get_mut(2).unwrap()
+                .set_bits(WM_DB3_SSL, 0b10),
+            SearchAdcLevel::High => write_bytes.get_mut(2).unwrap()
+                .set_bits(WM_DB3_SSL, 0b11),
+        };
+
+        match self.injection_side {
+            InjectionSide::HighSide => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_HLSI, true),
+            _ => write_bytes.get(2).unwrap()
+        };
+
+        match self.sound_mode {
+            SoundMode::Mono => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_MS, true),
+            _ => write_bytes.get(2).unwrap()
+        };
+
+        match self.mute {
+            MuteChannel::Right => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_MR, true),
+            MuteChannel::Left => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_ML, true),
+            _ => write_bytes.get(2).unwrap()
+        };
 
         Ok(())
     }
