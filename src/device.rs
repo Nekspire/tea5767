@@ -31,6 +31,10 @@ where
             ready_flag: false,
             band_limit_flag: false,
             stereo_indication: false,
+            software_programmable_port1: false,
+            software_programmable_port2: false,
+            search_indicator: false,
+            deemphasis_time: DeemphasisTime::Dtc75
         };
         Ok(tea5767)
     }
@@ -117,6 +121,57 @@ where
             _ => write_bytes.get(2).unwrap()
         };
 
+        match self.software_programmable_port1 {
+            true => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_SWP1, true),
+            _ => write_bytes.get(2).unwrap()
+        };
+
+        match self.software_programmable_port2 {
+            true => write_bytes.get_mut(3).unwrap()
+                .set_bit(WM_DB4_SWP2, true),
+            _ => write_bytes.get(3).unwrap()
+        };
+
+        match self.standby {
+            true => write_bytes.get_mut(3).unwrap()
+                .set_bit(WM_DB4_STBY, true),
+            _ => write_bytes.get(3).unwrap()
+        };
+
+        match self.high_cut_control {
+            true => write_bytes.get_mut(3).unwrap()
+                .set_bit(WM_DB4_HCC, true),
+            _ => write_bytes.get(3).unwrap()
+        };
+
+        match self.stereo_noise_canceling {
+            true => write_bytes.get_mut(3).unwrap()
+                .set_bit(WM_DB4_SNC, true),
+            _ => write_bytes.get(3).unwrap()
+        };
+
+        match self.search_indicator {
+            true => write_bytes.get_mut(3).unwrap()
+                .set_bit(WM_DB4_SI, true),
+            _ => write_bytes.get(3).unwrap()
+        };
+
+        match self.clock_frequency {
+            ClockFrequency::Clk32_768Khz => write_bytes.get_mut(3).unwrap()
+                    .set_bit(WM_DB4_XTAL, true),
+            ClockFrequency::Clk6_5MHz => write_bytes.get_mut(4).unwrap()
+                .set_bit(WM_DB5_PLLREF, true),
+            _ => write_bytes.get(3).unwrap()
+        };
+
+        match self.deemphasis_time {
+            DeemphasisTime::Dtc75 => write_bytes.get_mut(4).unwrap()
+                .set_bit(WM_DB5_DTC, true),
+            _ => write_bytes.get(4).unwrap()
+        };
+
+        write_data(&mut self.i2c, write_bytes);
         Ok(())
     }
 }
@@ -155,10 +210,22 @@ mod tests {
     use crate::defs::{InjectionSide, ClockFrequency};
 
     #[test]
-    fn test_to_decimal_pll() {
+    fn test_to_decimal_pll1() {
         assert_eq!(to_decimal_pll(InjectionSide::HighSide,
                                   ClockFrequency::Clk32_768Khz,
         89.9).unwrap(), 11001);
+    }
+    #[test]
+    fn test_to_decimal_pll2() {
+        assert_eq!(to_decimal_pll(InjectionSide::LowSide,
+                                  ClockFrequency::Clk6_5MHz,
+                                  89.9).unwrap(), 55);
+    }
+    #[test]
+    fn test_to_decimal_pll3() {
+        assert_eq!(to_decimal_pll(InjectionSide::LowSide,
+                                  ClockFrequency::Clk13Mhz,
+                                  89.9).unwrap(), 27);
     }
     #[test]
     fn test_to_register_format_pll() {

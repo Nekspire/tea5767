@@ -19,6 +19,10 @@ pub struct TEA5767<I2C> {
     pub(crate) ready_flag: bool,
     pub(crate) band_limit_flag: bool,
     pub(crate) stereo_indication: bool,
+    pub(crate) software_programmable_port1: bool,
+    pub(crate) software_programmable_port2: bool,
+    pub(crate) search_indicator: bool,
+    pub(crate) deemphasis_time: DeemphasisTime,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

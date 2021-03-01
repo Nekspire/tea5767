@@ -43,8 +43,8 @@ pub const WM_DB4_SNC: usize = 1;
 pub const WM_DB4_SI: usize = 0;
 
 //Write mode DataByte5
-pub const WM_DB4_PLLREF: usize = 7;
-pub const WM_DB4_DTC: usize = 6;
+pub const WM_DB5_PLLREF: usize = 7;
+pub const WM_DB5_DTC: usize = 6;
 
 //Read mode DataByte1
 pub const RM_DB1_RF: usize = 7;
