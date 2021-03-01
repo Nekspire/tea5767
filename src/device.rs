@@ -12,7 +12,7 @@ where
     /// TEA5767 constructor
     pub fn new(i2c: I2C, frequency: f32, band_limits: BandLimits,
                sound_mode: SoundMode) -> Result<Self, E> {
-        let tea5767 = TEA5767 {
+        let mut tea5767 = TEA5767 {
             i2c,
             address: DEVICE_ADDRESS,
             frequency,
@@ -27,7 +27,7 @@ where
             sound_mode,
             high_cut_control: false,
             stereo_noise_canceling: true,
-            clock_frequency: ClockFrequency::Clk13Mhz,
+            clock_frequency: ClockFrequency::Clk32_768Khz,
             ready_flag: false,
             band_limit_flag: false,
             stereo_indication: false,
@@ -36,6 +36,8 @@ where
             search_indicator: false,
             deemphasis_time: DeemphasisTime::Dtc75
         };
+
+        tea5767.upload()?;
         Ok(tea5767)
     }
 

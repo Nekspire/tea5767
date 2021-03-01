@@ -5,4 +5,4 @@
 
 mod regs;
 pub mod device;
-mod defs;
+pub mod defs;
