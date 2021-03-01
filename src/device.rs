@@ -3,7 +3,6 @@ use super::regs::*;
 use super::regs::DEVICE_ADDRESS;
 use embedded_hal::blocking::i2c;
 use bit_field::{BitField, BitArray};
-use core::any::Any;
 
 impl<I2C, E> TEA5767<I2C>
 where
@@ -44,6 +43,147 @@ where
     /// TEA5767 destructor
     pub fn destroy(self) -> Option<I2C> {
         Some(self.i2c)
+    }
+
+    /// Mute left and right channels
+    pub fn mute(&mut self) -> Result<(), E> {
+        self.mute = MuteChannel::Both;
+        self.upload()
+    }
+
+    /// Mute left channel
+    pub fn mute_left(&mut self) -> Result<(), E> {
+        self.mute = MuteChannel::Left;
+        self.upload()
+    }
+
+    /// Mute right channel
+    pub fn mute_right(&mut self) -> Result<(), E> {
+        self.mute = MuteChannel::Right;
+        self.upload()
+    }
+
+    /// Unmute left and right channels
+    pub fn unmute(&mut self) -> Result<(), E> {
+        self.mute = MuteChannel::None;
+        self.upload()
+    }
+
+    /// Unmute right channel
+    pub fn unmute_right(&mut self) -> Result<(), E> {
+        if self.mute == MuteChannel::Both {
+            self.mute = MuteChannel::Left;
+        } else if self.mute == MuteChannel::Left {
+            self.mute = MuteChannel::Left;
+        } else {
+            self.mute = MuteChannel::None;
+        }
+        self.upload()
+    }
+
+    /// Unmute left channel
+    pub fn unmute_left(&mut self) -> Result<(), E> {
+        if self.mute == MuteChannel::Both {
+            self.mute = MuteChannel::Right;
+        } else if self.mute == MuteChannel::Right {
+            self.mute = MuteChannel::Right;
+        } else {
+            self.mute = MuteChannel::None;
+        }
+        self.upload()
+    }
+
+    /// Enable standby mode
+    pub fn set_standby(&mut self) -> Result<(), E> {
+        self.standby = true;
+        self.upload()
+    }
+
+    /// Disable standby mode
+    pub fn reset_standby(&mut self) -> Result<(), E> {
+        self.standby = false;
+        self.upload()
+    }
+
+    /// Set band: Europe/US or Japanese
+    pub fn set_band(&mut self, band: BandLimits) -> Result<(), E> {
+        self.band_limits = band;
+        self.upload()
+    }
+
+    /// Enable soft mute mode
+    pub fn set_soft_mute(&mut self) -> Result<(), E> {
+        self.soft_mute = true;
+        self.upload()
+    }
+
+    /// Disable soft mute mode
+    pub fn reset_soft_mute(&mut self) -> Result<(), E> {
+        self.soft_mute = false;
+        self.upload()
+    }
+
+    /// Set specified clock frequency
+    pub fn set_clock_frequency(&mut self, clock_frequency: ClockFrequency)
+        -> Result<(), E> {
+        self.clock_frequency = clock_frequency;
+        self.upload()
+    }
+
+    /// Set high cut mode
+    pub fn set_high_cut_control(&mut self) -> Result<(), E> {
+        self.high_cut_control = true;
+        self.upload()
+    }
+
+    /// Reset high cut mode
+    pub fn reset_high_cut_control(&mut self) -> Result<(), E> {
+        self.high_cut_control = false;
+        self.upload()
+    }
+
+    /// Set stereo noise canceling
+    pub fn set_stereo_noise_canceling(&mut self) -> Result<(), E> {
+        self.stereo_noise_canceling = true;
+        self.upload()
+    }
+
+    /// Reset stereo noise canceling
+    pub fn reset_stereo_noise_canceling(&mut self) -> Result<(), E> {
+        self.stereo_noise_canceling = false;
+        self.upload()
+    }
+
+    /// The de-emphasis time constant is 75 μs or 50 μs
+    pub fn set_deemphasis_time(&mut self, deemphasis_time: DeemphasisTime)
+        -> Result<(), E> {
+        self.deemphasis_time = deemphasis_time;
+        self.upload()
+    }
+
+    /// Set specified radio frequency
+    pub fn set_frequency(&mut self, frequency: f32) -> Result<(), E> {
+        self.frequency = frequency;
+        self.upload()
+    }
+
+    pub fn set_stereo(&mut self) -> Result<(), E> {
+        self.sound_mode = SoundMode::Stereo;
+        self.upload()
+    }
+
+    pub fn set_mono(&mut self) -> Result<(), E> {
+        self.sound_mode = SoundMode::Mono;
+        self.upload()
+    }
+
+    /// Start searching for radio station up
+    pub fn search_up(&mut self, signal_level: SearchAdcLevel) -> Result<(), E> {
+        self.search_adc_level = signal_level;
+        self.search_mode_dir = SearchModeDirection::Up;
+        self.search_mode = true;
+        // TODO
+        Ok(())
     }
 
     /// Write preconfigured values to the device registers
@@ -116,9 +256,9 @@ where
         };
 
         match self.mute {
-            MuteChannel::Right => write_bytes.get_mut(2).unwrap()
-                .set_bit(WM_DB3_MR, true),
             MuteChannel::Left => write_bytes.get_mut(2).unwrap()
+                .set_bit(WM_DB3_MR, true),
+            MuteChannel::Right => write_bytes.get_mut(2).unwrap()
                 .set_bit(WM_DB3_ML, true),
             _ => write_bytes.get(2).unwrap()
         };
@@ -176,6 +316,7 @@ where
         write_data(&mut self.i2c, write_bytes);
         Ok(())
     }
+
 }
 
 fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency,
