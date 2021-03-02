@@ -4,6 +4,16 @@ use super::regs::DEVICE_ADDRESS;
 use embedded_hal::blocking::i2c;
 use bit_field::{BitField, BitArray};
 
+#[derive(Debug)]
+struct TEA5767Flags {
+    ready_flag: bool,
+    band_limit_flag: bool,
+    pll: [u8; 2],
+    sound_mode_flag: SoundMode,
+    adc_level_flag: u8,
+    founded_frequency: f32,
+}
+
 impl<I2C, E> TEA5767<I2C>
 where
     I2C: i2c::Write<Error = E> + i2c::Read<Error = E>
@@ -178,12 +188,28 @@ where
     }
 
     /// Start searching for radio station up
-    pub fn search_up(&mut self, signal_level: SearchAdcLevel) -> Result<(), E> {
+    pub fn search_up(&mut self, signal_level: SearchAdcLevel) -> Result<SearchStatus, E> {
         self.search_adc_level = signal_level;
         self.search_mode_dir = SearchModeDirection::Up;
         self.search_mode = true;
-        // TODO
-        Ok(())
+        self.upload();
+
+        let mut  status: SearchStatus;
+        loop {
+            let flags = self.download()?;
+
+            if flags.band_limit_flag {
+                status = SearchStatus::Failure;
+                break;
+            }
+            if flags.ready_flag {
+                // TODO
+                status = SearchStatus::Success;
+                break;
+            }
+        }
+        Ok(status)
+
     }
 
     /// Write preconfigured values to the device registers
@@ -227,6 +253,10 @@ where
                 .set_bit(WM_DB1_SM, true),
             _ => write_bytes.get(0).unwrap()
         };
+
+        if self.search_mode {
+            self.search_mode = false;
+        }
 
         match self.search_mode_dir {
             SearchModeDirection::Up => write_bytes.get_mut(2).unwrap()
@@ -313,10 +343,50 @@ where
             _ => write_bytes.get(4).unwrap()
         };
 
-        write_data(&mut self.i2c, write_bytes);
+        write_data(&mut self.i2c, write_bytes)?;
         Ok(())
     }
 
+    /// Read actual values from the device registers
+    fn download(&mut self) -> Result<TEA5767Flags, E> {
+        let mut read_bytes = read_data(&mut self.i2c)?;
+
+        let mut flags = TEA5767Flags {
+            ready_flag: false,
+            band_limit_flag: false,
+            pll: [0, 0],
+            sound_mode_flag: SoundMode::Mono,
+            adc_level_flag: 0,
+            founded_frequency: 0.0
+        };
+
+        if read_bytes.get(0).unwrap().get_bit(RM_DB1_RF) {
+            flags.ready_flag = true;
+        }
+
+        if read_bytes.get(0).unwrap().get_bit(RM_DB1_BLF) {
+            flags.band_limit_flag = true;
+        }
+
+        let mut pll = [0_u8; 2];
+        pll[0] = read_bytes[0];
+        pll[1] = read_bytes[1];
+
+        flags.founded_frequency = from_decimal_pll(
+            self.injection_side,
+            self.clock_frequency,
+            from_register_format_pll(pll)
+                .unwrap())
+            .unwrap();
+
+        if read_bytes.get(2).unwrap().get_bit(RM_DB3_STEREO) {
+            flags.sound_mode_flag = SoundMode::Stereo;
+        }
+
+        flags.adc_level_flag = read_bytes.get(3).unwrap().get_bits(4..8);
+
+        Ok(flags)
+    }
 }
 
 fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency,
@@ -330,21 +400,48 @@ fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency
             numerator = (4.0 * (frequency * 1_000_000.0 - 225_000.0)) as u32;
         }
     }
-    let mut f_ref: u32 = 0;
-    match clock_frequency {
-        ClockFrequency::Clk32_768Khz => f_ref = 32_768,
-        ClockFrequency::Clk6_5MHz => f_ref = 6_500_000,
-        ClockFrequency::Clk13Mhz => f_ref = 13_000_000,
-    }
+
+    let f_ref = match clock_frequency {
+        ClockFrequency::Clk32_768Khz => 32_768_u32,
+        ClockFrequency::Clk6_5MHz => 6_500_000_u32,
+        ClockFrequency::Clk13Mhz => 13_000_000_u32,
+    };
 
     Some(numerator / f_ref)
 }
 
+fn from_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency,
+                  decimal: u32) -> Option<f32> {
+    let mut frequency: f32;
+    let f_ref = match clock_frequency {
+        ClockFrequency::Clk32_768Khz => 32_768_f32,
+        ClockFrequency::Clk6_5MHz => 6_500_000_f32,
+        ClockFrequency::Clk13Mhz => 13_000_000_f32,
+    };
+    match injection_side {
+        InjectionSide::HighSide => {
+            frequency = ((decimal as f32 * f_ref / 4.0) - 225_000.0) / 1_000_000.0;
+        }
+        InjectionSide::LowSide => {
+            frequency = (decimal as f32 * f_ref / 4.0) + 225_000.0 / 1_000_000.0;
+        }
+    }
+    Some(frequency)
+}
+
 fn to_register_format_pll(decimal: u32) -> Option<[u8; 2]> {
-    // use bit_field del this
     let pll_binary = [decimal.get_bits(8..14) as u8,
         decimal.get_bits(0..8) as u8];
     Some(pll_binary)
+}
+
+fn from_register_format_pll(mut pll: [u8; 2]) -> Option<u32> {
+    pll[0].set_bits(6..8, 0b00);
+    let mut pll_decimal: u32 = 0;
+    pll_decimal.set_bits(8..14, pll[0] as u32); // MSB
+    pll_decimal.set_bits(0..8, pll[1] as u32); // LSB
+
+    Some(pll_decimal)
 }
 
 #[cfg(test)]
@@ -374,4 +471,16 @@ mod tests {
     fn test_to_register_format_pll() {
         assert_eq!(to_register_format_pll(11001).unwrap(),[0b0010_1010, 0b1111_1001]);
     }
+    #[test]
+    fn test_from_register_format_pll() {
+        assert_eq!(from_register_format_pll([0b0010_1010, 0b1111_1001]).unwrap(), 11001);
+    }
+
+    #[test]
+    fn test_from_decimal_format_pll() {
+        assert_eq!(from_decimal_pll(InjectionSide::HighSide,
+                                    ClockFrequency::Clk32_768Khz,
+                                    11001).unwrap(),89.895195);
+    }
+
 }

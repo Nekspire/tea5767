@@ -25,6 +25,7 @@ pub struct TEA5767<I2C> {
     pub(crate) deemphasis_time: DeemphasisTime,
 }
 
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SearchModeDirection {
     /// Up, default
@@ -84,4 +85,12 @@ pub enum DeemphasisTime {
     Dtc75,
     /// 50 μs
     Dtc50,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SearchStatus {
+    /// Station has been found
+    Success,
+    /// Station has not been found, band limit reached
+    Failure,
 }

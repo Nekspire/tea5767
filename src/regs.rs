@@ -9,10 +9,12 @@ where I2C: Write,
     i2c.write(DEVICE_ADDRESS, &data)
 }
 
-pub fn read_data<I2C>(i2c: &mut I2C, mut data: [u8; 5]) -> Result<(), I2C::Error>
+pub fn read_data<I2C>(i2c: &mut I2C) -> Result<[u8; 5], I2C::Error>
 where I2C: Read,
 {
-    i2c.read(DEVICE_ADDRESS,&mut data)
+    let mut data: [u8; 5] = [0; 5];
+    i2c.read(DEVICE_ADDRESS,&mut data);
+    Ok(data)
 }
 
 //Write mode DataByte1
