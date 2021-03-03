@@ -18,7 +18,7 @@ impl<I2C, E> TEA5767<I2C>
 where
     I2C: i2c::Write<Error = E> + i2c::Read<Error = E>
 {
-    /// TEA5767 constructor
+    /// TEA5767 default constructor
     pub fn new(i2c: I2C, frequency: f32, band_limits: BandLimits,
                sound_mode: SoundMode) -> Result<Self, E> {
         let mut tea5767 = TEA5767 {
@@ -32,9 +32,9 @@ where
             search_mode: false,
             search_mode_dir: SearchModeDirection::Up,
             search_adc_level: SearchAdcLevel::Low,
-            injection_side: InjectionSide::LowSide,
+            injection_side: InjectionSide::HighSide,
             sound_mode,
-            high_cut_control: false,
+            high_cut_control: true,
             stereo_noise_canceling: true,
             clock_frequency: ClockFrequency::Clk32_768Khz,
             ready_flag: false,
@@ -43,7 +43,7 @@ where
             software_programmable_port1: false,
             software_programmable_port2: false,
             search_indicator: false,
-            deemphasis_time: DeemphasisTime::Dtc75
+            deemphasis_time: DeemphasisTime::Dtc75,
         };
 
         tea5767.upload()?;
@@ -177,42 +177,114 @@ where
         self.upload()
     }
 
+    /// Set stereo sound mode
     pub fn set_stereo(&mut self) -> Result<(), E> {
         self.sound_mode = SoundMode::Stereo;
         self.upload()
     }
-
+    /// Set mono sound mode
     pub fn set_mono(&mut self) -> Result<(), E> {
         self.sound_mode = SoundMode::Mono;
         self.upload()
     }
 
-    /// Start searching for radio station up
-    pub fn search_up(&mut self, signal_level: SearchAdcLevel) -> Result<SearchStatus, E> {
+    /// Start searching for radio station up from frequency
+    pub fn search_up(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
+        -> Result<(SearchStatus, f32), E> {
+        let mut  status = SearchStatus::Failure;
+        let mut freq: f32 = 0.0;
+
+        // set starting frequency
+        self.set_frequency(from_frequency);
+        // mute
+        self.mute();
+
         self.search_adc_level = signal_level;
         self.search_mode_dir = SearchModeDirection::Up;
-        self.search_mode = true;
-        self.upload();
 
-        let mut  status: SearchStatus;
-        loop {
-            let flags = self.download()?;
+        let limit = match self.band_limits {
+            BandLimits::EuropeUS => BAND_LIMITS_EUROPE_US.1,
+            BandLimits::Japanese => BAND_LIMITS_JAPANESE.1,
+        };
 
-            if flags.band_limit_flag {
-                status = SearchStatus::Failure;
-                break;
-            }
-            if flags.ready_flag {
-                // TODO
-                status = SearchStatus::Success;
-                break;
+        let mut flags = self.download()?;
+
+        while (self.frequency < limit) && (status == SearchStatus::Failure) {
+            self.frequency = flags.founded_frequency + 0.1;
+            self.search_mode = true;
+            self.upload();
+
+            loop {
+                flags = self.download()?;
+
+                if flags.ready_flag {
+                    if flags.band_limit_flag {
+                        status = SearchStatus::Failure;
+                        self.search_mode = false;
+                        self.upload();
+                        break;
+                    } else {
+                        self.search_mode = false;
+                        freq = flags.founded_frequency;
+                        status = SearchStatus::Success;
+                        break;
+                    }
+                }
             }
         }
-        Ok(status)
-
+        self.unmute();
+        Ok((status, freq))
     }
 
-    /// Write preconfigured values to the device registers
+    /// Start searching for radio station downs from frequency
+    pub fn search_down(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
+                     -> Result<(SearchStatus, f32), E> {
+        let mut  status = SearchStatus::Failure;
+        let mut freq: f32 = 0.0;
+
+        // set starting frequency
+        self.set_frequency(from_frequency);
+        // mute
+        self.mute();
+
+        self.search_adc_level = signal_level;
+        self.search_mode_dir = SearchModeDirection::Down;
+
+        let limit = match self.band_limits {
+            BandLimits::EuropeUS => BAND_LIMITS_EUROPE_US.0,
+            BandLimits::Japanese => BAND_LIMITS_JAPANESE.0,
+        };
+
+        let mut flags = self.download()?;
+
+        while (self.frequency > limit) && (status == SearchStatus::Failure) {
+            self.frequency = flags.founded_frequency - 0.1;
+            self.search_mode = true;
+            self.upload();
+
+            loop {
+                flags = self.download()?;
+
+                if flags.ready_flag {
+                    if flags.band_limit_flag {
+                        status = SearchStatus::Failure;
+                        self.search_mode = false;
+                        self.upload();
+                        break;
+                    } else {
+                        self.search_mode = false;
+                        freq = flags.founded_frequency;
+                        status = SearchStatus::Success;
+                        break;
+                    }
+                }
+            }
+        }
+        self.unmute();
+        Ok((status, freq))
+    }
+
+    // Write preconfigured values to the device registers
     fn upload(&mut self) -> Result<(), E> {
         let mut write_bytes: [u8; 5] =  [0; 5];
         match self.band_limits {
@@ -347,7 +419,7 @@ where
         Ok(())
     }
 
-    /// Read actual values from the device registers
+    // Read actual values from the device registers
     fn download(&mut self) -> Result<TEA5767Flags, E> {
         let mut read_bytes = read_data(&mut self.i2c)?;
 
@@ -401,10 +473,10 @@ fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency
         }
     }
 
-    let f_ref = match clock_frequency {
+    let f_ref = match clock_frequency { // TODO change name to crystal or reference frequency
         ClockFrequency::Clk32_768Khz => 32_768_u32,
-        ClockFrequency::Clk6_5MHz => 6_500_000_u32,
-        ClockFrequency::Clk13Mhz => 13_000_000_u32,
+        ClockFrequency::Clk6_5MHz => 50_000_u32,
+        ClockFrequency::Clk13Mhz => 50_000_u32,
     };
 
     Some(numerator / f_ref)
@@ -413,10 +485,10 @@ fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency
 fn from_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency,
                   decimal: u32) -> Option<f32> {
     let mut frequency: f32;
-    let f_ref = match clock_frequency {
+    let f_ref = match clock_frequency { // TODO change name to crystal or reference frequency
         ClockFrequency::Clk32_768Khz => 32_768_f32,
-        ClockFrequency::Clk6_5MHz => 6_500_000_f32,
-        ClockFrequency::Clk13Mhz => 13_000_000_f32,
+        ClockFrequency::Clk6_5MHz => 50_000_f32,
+        ClockFrequency::Clk13Mhz => 50_000_f32,
     };
     match injection_side {
         InjectionSide::HighSide => {
