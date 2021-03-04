@@ -15,7 +15,7 @@ pub struct TEA5767<I2C> {
     pub(crate) sound_mode: SoundMode,
     pub(crate) high_cut_control: bool,
     pub(crate) stereo_noise_canceling: bool,
-    pub(crate) clock_frequency: ClockFrequency,
+    pub(crate) crystal_frequency: CrystalFrequency,
     pub(crate) ready_flag: bool,
     pub(crate) band_limit_flag: bool,
     pub(crate) stereo_indication: bool,
@@ -70,7 +70,7 @@ pub enum BandLimits {
     EuropeUS,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ClockFrequency {
+pub enum CrystalFrequency {
     /// 13 Mhz
     Clk13Mhz,
     /// 32.768 Mhz

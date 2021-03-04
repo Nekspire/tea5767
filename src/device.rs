@@ -36,7 +36,7 @@ where
             sound_mode,
             high_cut_control: true,
             stereo_noise_canceling: true,
-            clock_frequency: ClockFrequency::Clk32_768Khz,
+            crystal_frequency: CrystalFrequency::Clk32_768Khz,
             ready_flag: false,
             band_limit_flag: false,
             stereo_indication: false,
@@ -134,9 +134,9 @@ where
     }
 
     /// Set specified clock frequency
-    pub fn set_clock_frequency(&mut self, clock_frequency: ClockFrequency)
+    pub fn set_clock_frequency(&mut self, clock_frequency: CrystalFrequency)
         -> Result<(), E> {
-        self.clock_frequency = clock_frequency;
+        self.crystal_frequency = clock_frequency;
         self.upload()
     }
 
@@ -307,7 +307,7 @@ where
         }
 
         let pll = to_register_format_pll(
-            to_decimal_pll(self.injection_side, self.clock_frequency, self.frequency)
+            to_decimal_pll(self.injection_side, self.crystal_frequency, self.frequency)
                 .unwrap()
         ).unwrap();
 
@@ -338,7 +338,7 @@ where
 
         match self.search_adc_level {
             SearchAdcLevel::Low => write_bytes.get_mut(2).unwrap()
-                .set_bits(WM_DB3_SSL, 0b01), // TODO names of bits
+                .set_bits(WM_DB3_SSL, 0b01),
             SearchAdcLevel::Mid => write_bytes.get_mut(2).unwrap()
                 .set_bits(WM_DB3_SSL, 0b10),
             SearchAdcLevel::High => write_bytes.get_mut(2).unwrap()
@@ -401,10 +401,10 @@ where
             _ => write_bytes.get(3).unwrap()
         };
 
-        match self.clock_frequency {
-            ClockFrequency::Clk32_768Khz => write_bytes.get_mut(3).unwrap()
+        match self.crystal_frequency {
+            CrystalFrequency::Clk32_768Khz => write_bytes.get_mut(3).unwrap()
                     .set_bit(WM_DB4_XTAL, true),
-            ClockFrequency::Clk6_5MHz => write_bytes.get_mut(4).unwrap()
+            CrystalFrequency::Clk6_5MHz => write_bytes.get_mut(4).unwrap()
                 .set_bit(WM_DB5_PLLREF, true),
             _ => write_bytes.get(3).unwrap()
         };
@@ -446,7 +446,7 @@ where
 
         flags.founded_frequency = from_decimal_pll(
             self.injection_side,
-            self.clock_frequency,
+            self.crystal_frequency,
             from_register_format_pll(pll)
                 .unwrap())
             .unwrap();
@@ -461,7 +461,7 @@ where
     }
 }
 
-fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency,
+fn to_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequency,
                   frequency: f32) -> Option<u32> {
     let mut numerator: u32 = 0 ;
     match injection_side {
@@ -473,22 +473,22 @@ fn to_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency
         }
     }
 
-    let f_ref = match clock_frequency { // TODO change name to crystal or reference frequency
-        ClockFrequency::Clk32_768Khz => 32_768_u32,
-        ClockFrequency::Clk6_5MHz => 50_000_u32,
-        ClockFrequency::Clk13Mhz => 50_000_u32,
+    let f_ref = match crystal_frequency {
+        CrystalFrequency::Clk32_768Khz => 32_768_u32,
+        CrystalFrequency::Clk6_5MHz => 50_000_u32,
+        CrystalFrequency::Clk13Mhz => 50_000_u32,
     };
 
     Some(numerator / f_ref)
 }
 
-fn from_decimal_pll(injection_side: InjectionSide, clock_frequency: ClockFrequency,
-                  decimal: u32) -> Option<f32> {
+fn from_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequency,
+                    decimal: u32) -> Option<f32> {
     let mut frequency: f32;
-    let f_ref = match clock_frequency { // TODO change name to crystal or reference frequency
-        ClockFrequency::Clk32_768Khz => 32_768_f32,
-        ClockFrequency::Clk6_5MHz => 50_000_f32,
-        ClockFrequency::Clk13Mhz => 50_000_f32,
+    let f_ref = match crystal_frequency {
+        CrystalFrequency::Clk32_768Khz => 32_768_f32,
+        CrystalFrequency::Clk6_5MHz => 50_000_f32,
+        CrystalFrequency::Clk13Mhz => 50_000_f32,
     };
     match injection_side {
         InjectionSide::HighSide => {
@@ -519,24 +519,24 @@ fn from_register_format_pll(mut pll: [u8; 2]) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use crate::device::*;
-    use crate::defs::{InjectionSide, ClockFrequency};
+    use crate::defs::{InjectionSide, CrystalFrequency};
 
     #[test]
     fn test_to_decimal_pll1() {
         assert_eq!(to_decimal_pll(InjectionSide::HighSide,
-                                  ClockFrequency::Clk32_768Khz,
-        89.9).unwrap(), 11001);
+                                  CrystalFrequency::Clk32_768Khz,
+                                  89.9).unwrap(), 11001);
     }
     #[test]
     fn test_to_decimal_pll2() {
         assert_eq!(to_decimal_pll(InjectionSide::LowSide,
-                                  ClockFrequency::Clk6_5MHz,
+                                  CrystalFrequency::Clk6_5MHz,
                                   89.9).unwrap(), 55);
     }
     #[test]
     fn test_to_decimal_pll3() {
         assert_eq!(to_decimal_pll(InjectionSide::LowSide,
-                                  ClockFrequency::Clk13Mhz,
+                                  CrystalFrequency::Clk13Mhz,
                                   89.9).unwrap(), 27);
     }
     #[test]
@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn test_from_decimal_format_pll() {
         assert_eq!(from_decimal_pll(InjectionSide::HighSide,
-                                    ClockFrequency::Clk32_768Khz,
+                                    CrystalFrequency::Clk32_768Khz,
                                     11001).unwrap(),89.895195);
     }
 
