@@ -183,7 +183,7 @@ where
 
     /// Start searching for radio station up from frequency
     pub fn search_up(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
-        -> Result<(SearchStatus, f32), E> {
+        -> Result<SearchStatus, E> {
         let mut  status = SearchStatus::Failure;
         let mut freq: f32 = 0.0;
 
@@ -218,7 +218,7 @@ where
                         break;
                     } else {
                         self.search_mode = false;
-                        freq = flags.output_frequency;
+                        self.frequency = flags.output_frequency;
                         status = SearchStatus::Success;
                         break;
                     }
@@ -226,12 +226,12 @@ where
             }
         }
         self.unmute();
-        Ok((status, freq))
+        Ok(status)
     }
 
     /// Start searching for radio station downs from frequency
     pub fn search_down(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
-                     -> Result<(SearchStatus, f32), E> {
+                     -> Result<SearchStatus, E> {
         let mut  status = SearchStatus::Failure;
         let mut freq: f32 = 0.0;
 
@@ -266,7 +266,7 @@ where
                         break;
                     } else {
                         self.search_mode = false;
-                        freq = flags.output_frequency;
+                        self.frequency = flags.output_frequency;
                         status = SearchStatus::Success;
                         break;
                     }
@@ -274,7 +274,25 @@ where
             }
         }
         self.unmute();
-        Ok((status, freq))
+        Ok(status)
+    }
+
+    /// Read radio frequency
+    pub fn get_frequency(&mut self) -> Result<f32, E> {
+        let flags = self.download()?;
+        Ok(flags.output_frequency)
+    }
+
+    /// Read audio signal level, 1 - 12
+    pub fn get_signal_level(&mut self) -> Result<u8, E> {
+        let flags = self.download()?;
+        Ok(flags.adc_level)
+    }
+
+    /// Read sound mode, mono or stereo
+    pub fn get_sound_mode(&mut self) -> Result<SoundMode, E> {
+        let flags = self.download()?;
+        Ok(flags.sound_mode_flag)
     }
 
     // Write preconfigured values to the device registers
