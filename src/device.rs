@@ -4,21 +4,21 @@ use super::regs::DEVICE_ADDRESS;
 use embedded_hal::blocking::i2c;
 use bit_field::{BitField, BitArray};
 
+// TEA5767 flags and additional information from read mode
 #[derive(Debug)]
 struct TEA5767Flags {
     ready_flag: bool,
     band_limit_flag: bool,
-    pll: [u8; 2],
     sound_mode_flag: SoundMode,
-    adc_level_flag: u8,
-    founded_frequency: f32,
+    adc_level: u8,
+    output_frequency: f32,
 }
 
 impl<I2C, E> TEA5767<I2C>
 where
     I2C: i2c::Write<Error = E> + i2c::Read<Error = E>
 {
-    /// TEA5767 default constructor
+    /// Create new TEA5767 instance
     pub fn new(i2c: I2C, frequency: f32, band_limits: BandLimits,
                sound_mode: SoundMode) -> Result<Self, E> {
         let mut tea5767 = TEA5767 {
@@ -37,9 +37,6 @@ where
             high_cut_control: true,
             stereo_noise_canceling: true,
             crystal_frequency: CrystalFrequency::Clk32_768Khz,
-            ready_flag: false,
-            band_limit_flag: false,
-            stereo_indication: false,
             software_programmable_port1: false,
             software_programmable_port2: false,
             search_indicator: false,
@@ -50,9 +47,9 @@ where
         Ok(tea5767)
     }
 
-    /// TEA5767 destructor
-    pub fn destroy(self) -> Option<I2C> {
-        Some(self.i2c)
+    /// Remove TEA5767 instance
+    pub fn destroy(self) -> Result<I2C, E> {
+        Ok(self.i2c)
     }
 
     /// Mute left and right channels
@@ -81,25 +78,21 @@ where
 
     /// Unmute right channel
     pub fn unmute_right(&mut self) -> Result<(), E> {
-        if self.mute == MuteChannel::Both {
-            self.mute = MuteChannel::Left;
-        } else if self.mute == MuteChannel::Left {
-            self.mute = MuteChannel::Left;
-        } else {
-            self.mute = MuteChannel::None;
-        }
+        self.mute = match self.mute {
+            MuteChannel::Both => MuteChannel::Left,
+            MuteChannel::Left => MuteChannel::Left,
+            _ => MuteChannel::None,
+        };
         self.upload()
     }
 
     /// Unmute left channel
     pub fn unmute_left(&mut self) -> Result<(), E> {
-        if self.mute == MuteChannel::Both {
-            self.mute = MuteChannel::Right;
-        } else if self.mute == MuteChannel::Right {
-            self.mute = MuteChannel::Right;
-        } else {
-            self.mute = MuteChannel::None;
-        }
+        self.mute = match self.mute {
+            MuteChannel::Both => MuteChannel::Right,
+            MuteChannel::Right => MuteChannel::Right,
+            _ => MuteChannel::None,
+        };
         self.upload()
     }
 
@@ -210,7 +203,7 @@ where
         let mut flags = self.download()?;
 
         while (self.frequency < limit) && (status == SearchStatus::Failure) {
-            self.frequency = flags.founded_frequency + 0.1;
+            self.frequency = flags.output_frequency + 0.1;
             self.search_mode = true;
             self.upload();
 
@@ -225,7 +218,7 @@ where
                         break;
                     } else {
                         self.search_mode = false;
-                        freq = flags.founded_frequency;
+                        freq = flags.output_frequency;
                         status = SearchStatus::Success;
                         break;
                     }
@@ -258,7 +251,7 @@ where
         let mut flags = self.download()?;
 
         while (self.frequency > limit) && (status == SearchStatus::Failure) {
-            self.frequency = flags.founded_frequency - 0.1;
+            self.frequency = flags.output_frequency - 0.1;
             self.search_mode = true;
             self.upload();
 
@@ -273,7 +266,7 @@ where
                         break;
                     } else {
                         self.search_mode = false;
-                        freq = flags.founded_frequency;
+                        freq = flags.output_frequency;
                         status = SearchStatus::Success;
                         break;
                     }
@@ -289,19 +282,19 @@ where
         let mut write_bytes: [u8; 5] =  [0; 5];
         match self.band_limits {
             BandLimits::EuropeUS => {
-                if self.frequency < 87.5 {
-                    self.frequency = 87.5
+                if self.frequency < BAND_LIMITS_EUROPE_US.0 {
+                    self.frequency = BAND_LIMITS_EUROPE_US.0;
                 }
-                else if self.frequency > 108.0 {
-                    self.frequency = 108.0;
+                else if self.frequency > BAND_LIMITS_EUROPE_US.1 {
+                    self.frequency = BAND_LIMITS_EUROPE_US.1;
                 }
             }
             BandLimits::Japanese => {
-                if self.frequency < 76.0 {
-                    self.frequency = 76.0
+                if self.frequency < BAND_LIMITS_JAPANESE.0 {
+                    self.frequency = BAND_LIMITS_JAPANESE.0;
                 }
-                else if self.frequency > 91.0 {
-                    self.frequency = 91.0;
+                else if self.frequency > BAND_LIMITS_JAPANESE.1 {
+                    self.frequency = BAND_LIMITS_JAPANESE.1;
                 }
             }
         }
@@ -426,10 +419,9 @@ where
         let mut flags = TEA5767Flags {
             ready_flag: false,
             band_limit_flag: false,
-            pll: [0, 0],
             sound_mode_flag: SoundMode::Mono,
-            adc_level_flag: 0,
-            founded_frequency: 0.0
+            adc_level: 0,
+            output_frequency: 0.0
         };
 
         if read_bytes.get(0).unwrap().get_bit(RM_DB1_RF) {
@@ -444,7 +436,7 @@ where
         pll[0] = read_bytes[0];
         pll[1] = read_bytes[1];
 
-        flags.founded_frequency = from_decimal_pll(
+        flags.output_frequency = from_decimal_pll(
             self.injection_side,
             self.crystal_frequency,
             from_register_format_pll(pll)
@@ -455,12 +447,13 @@ where
             flags.sound_mode_flag = SoundMode::Stereo;
         }
 
-        flags.adc_level_flag = read_bytes.get(3).unwrap().get_bits(4..8);
+        flags.adc_level = read_bytes.get(3).unwrap().get_bits(4..8);
 
         Ok(flags)
     }
 }
 
+// change register binary format to decimal format
 fn to_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequency,
                   frequency: f32) -> Option<u32> {
     let mut numerator: u32 = 0 ;
@@ -482,6 +475,7 @@ fn to_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequ
     Some(numerator / f_ref)
 }
 
+// get output frequency from device
 fn from_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequency,
                     decimal: u32) -> Option<f32> {
     let mut frequency: f32;
@@ -501,17 +495,21 @@ fn from_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFre
     Some(frequency)
 }
 
+// change pll decimal format to register binary format
 fn to_register_format_pll(decimal: u32) -> Option<[u8; 2]> {
     let pll_binary = [decimal.get_bits(8..14) as u8,
         decimal.get_bits(0..8) as u8];
     Some(pll_binary)
 }
 
+// change register binary format to decimal format
 fn from_register_format_pll(mut pll: [u8; 2]) -> Option<u32> {
     pll[0].set_bits(6..8, 0b00);
     let mut pll_decimal: u32 = 0;
-    pll_decimal.set_bits(8..14, pll[0] as u32); // MSB
-    pll_decimal.set_bits(0..8, pll[1] as u32); // LSB
+    // MSB
+    pll_decimal.set_bits(8..14, pll[0] as u32);
+    // LSB
+    pll_decimal.set_bits(0..8, pll[1] as u32);
 
     Some(pll_decimal)
 }
