@@ -2,7 +2,7 @@ use super::defs::*;
 use super::regs::*;
 use super::regs::DEVICE_ADDRESS;
 use embedded_hal::blocking::i2c;
-use bit_field::{BitField, BitArray};
+use bit_field::BitField;
 use micromath::F32Ext;
 
 // TEA5767 flags and additional information from read mode
@@ -186,12 +186,12 @@ where
     pub fn search_up(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
         -> Result<SearchStatus, E> {
         let mut  status = SearchStatus::Failure;
-        let mut freq: f32 = 0.0;
+        let _freq: f32 = 0.0;
 
         // set starting frequency
-        self.set_frequency(from_frequency);
+        self.set_frequency(from_frequency)?;
         // mute
-        self.mute();
+        self.mute()?;
 
         self.search_adc_level = signal_level;
         self.search_mode_dir = SearchModeDirection::Up;
@@ -206,7 +206,7 @@ where
         while (self.frequency < limit) && (status == SearchStatus::Failure) {
             self.frequency = flags.output_frequency + 0.1;
             self.search_mode = true;
-            self.upload();
+            self.upload()?;
 
             loop {
                 flags = self.download()?;
@@ -215,7 +215,7 @@ where
                     if flags.band_limit_flag {
                         status = SearchStatus::Failure;
                         self.search_mode = false;
-                        self.upload();
+                        self.upload()?;
                         break;
                     } else {
                         self.search_mode = false;
@@ -226,7 +226,7 @@ where
                 }
             }
         }
-        self.unmute();
+        self.unmute()?;
         Ok(status)
     }
 
@@ -234,12 +234,12 @@ where
     pub fn search_down(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
                      -> Result<SearchStatus, E> {
         let mut  status = SearchStatus::Failure;
-        let mut freq: f32 = 0.0;
+        let _freq: f32 = 0.0;
 
         // set starting frequency
-        self.set_frequency(from_frequency);
+        self.set_frequency(from_frequency)?;
         // mute
-        self.mute();
+        self.mute()?;
 
         self.search_adc_level = signal_level;
         self.search_mode_dir = SearchModeDirection::Down;
@@ -254,7 +254,7 @@ where
         while (self.frequency > limit) && (status == SearchStatus::Failure) {
             self.frequency = flags.output_frequency - 0.1;
             self.search_mode = true;
-            self.upload();
+            self.upload()?;
 
             loop {
                 flags = self.download()?;
@@ -263,7 +263,7 @@ where
                     if flags.band_limit_flag {
                         status = SearchStatus::Failure;
                         self.search_mode = false;
-                        self.upload();
+                        self.upload()?;
                         break;
                     } else {
                         self.search_mode = false;
@@ -274,7 +274,7 @@ where
                 }
             }
         }
-        self.unmute();
+        self.unmute()?;
         Ok(status)
     }
 
@@ -434,7 +434,7 @@ where
 
     // Read actual values from the device registers
     fn download(&mut self) -> Result<TEA5767Flags, E> {
-        let mut read_bytes = read_data(&mut self.i2c)?;
+        let read_bytes = read_data(&mut self.i2c)?;
 
         let mut flags = TEA5767Flags {
             ready_flag: false,
@@ -478,15 +478,14 @@ where
 // change register binary format to decimal format
 fn to_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequency,
                   frequency: f32) -> Option<u32> {
-    let mut numerator: u32 = 0 ;
-    match injection_side {
+    let numerator= match injection_side {
         InjectionSide::HighSide => {
-            numerator = (4.0 * (frequency * 1_000_000.0 + 225_000.0)) as u32;
+            (4.0 * (frequency * 1_000_000.0 + 225_000.0)) as u32
         }
         InjectionSide::LowSide => {
-            numerator = (4.0 * (frequency * 1_000_000.0 - 225_000.0)) as u32;
+            (4.0 * (frequency * 1_000_000.0 - 225_000.0)) as u32
         }
-    }
+    };
 
     let f_ref = match crystal_frequency {
         CrystalFrequency::Clk32_768Khz => 32_768_u32,
@@ -500,7 +499,7 @@ fn to_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequ
 // get output frequency from device
 fn from_decimal_pll(injection_side: InjectionSide, crystal_frequency: CrystalFrequency,
                     decimal: u32) -> Option<f32> {
-    let mut frequency: f32;
+    let frequency: f32;
     let f_ref = match crystal_frequency {
         CrystalFrequency::Clk32_768Khz => 32_768_f32,
         CrystalFrequency::Clk6_5MHz => 50_000_f32,

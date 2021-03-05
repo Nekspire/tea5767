@@ -1,8 +1,8 @@
 
 #![no_std]
-#![allow(unused)] // 1st stage of development
-#![allow(dead_code)] // 1st stage of development
+//#![allow(unused)] // 1st stage of development
+//#![allow(dead_code)] // 1st stage of development
 
 mod regs;
-pub mod device;
+mod device;
 pub mod defs;

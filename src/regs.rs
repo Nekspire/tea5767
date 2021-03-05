@@ -4,18 +4,18 @@ use core::ops::Range;
 pub const DEVICE_ADDRESS: u8 =  0x60;
 
 // Hal I2C write binding
-pub fn write_data<I2C>(i2c: &mut I2C, data: [u8; 5]) -> Result<(), I2C::Error>
-where I2C: Write,
+pub fn write_data<I2C, E>(i2c: &mut I2C, data: [u8; 5]) -> Result<(), E>
+where I2C: Write<Error = E>,
 {
     i2c.write(DEVICE_ADDRESS, &data)
 }
 
 // Hal I2C read binding
-pub fn read_data<I2C>(i2c: &mut I2C) -> Result<[u8; 5], I2C::Error>
-where I2C: Read,
+pub fn read_data<I2C, E>(i2c: &mut I2C) -> Result<[u8; 5], E>
+where I2C: Read<Error = E>,
 {
     let mut data: [u8; 5] = [0; 5];
-    i2c.read(DEVICE_ADDRESS,&mut data);
+    i2c.read(DEVICE_ADDRESS, &mut data)?;
     Ok(data)
 }
 
