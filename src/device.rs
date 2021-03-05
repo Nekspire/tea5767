@@ -3,6 +3,7 @@ use super::regs::*;
 use super::regs::DEVICE_ADDRESS;
 use embedded_hal::blocking::i2c;
 use bit_field::{BitField, BitArray};
+use micromath::F32Ext;
 
 // TEA5767 flags and additional information from read mode
 #[derive(Debug)]
@@ -126,7 +127,7 @@ where
         self.upload()
     }
 
-    /// Set specified clock frequency
+    /// Set specific clock frequency based on crystal
     pub fn set_clock_frequency(&mut self, clock_frequency: CrystalFrequency)
         -> Result<(), E> {
         self.crystal_frequency = clock_frequency;
@@ -164,7 +165,7 @@ where
         self.upload()
     }
 
-    /// Set specified radio frequency
+    /// Set specific radio frequency
     pub fn set_frequency(&mut self, frequency: f32) -> Result<(), E> {
         self.frequency = frequency;
         self.upload()
@@ -229,7 +230,7 @@ where
         Ok(status)
     }
 
-    /// Start searching for radio station downs from frequency
+    /// Start searching for radio station down from frequency
     pub fn search_down(&mut self, signal_level: SearchAdcLevel, from_frequency: f32)
                      -> Result<SearchStatus, E> {
         let mut  status = SearchStatus::Failure;
@@ -277,13 +278,14 @@ where
         Ok(status)
     }
 
-    /// Read radio frequency
+    /// Get current radio frequency
     pub fn get_frequency(&mut self) -> Result<f32, E> {
+        self.download()?;
         let flags = self.download()?;
         Ok(flags.output_frequency)
     }
 
-    /// Read audio signal level, 1 - 12
+    /// Get audio signal strength level, 1 - 12
     pub fn get_signal_level(&mut self) -> Result<u8, E> {
         let flags = self.download()?;
         Ok(flags.adc_level)
@@ -460,6 +462,8 @@ where
             from_register_format_pll(pll)
                 .unwrap())
             .unwrap();
+
+        flags.output_frequency = (flags.output_frequency * 10.0).round() / 10.0;
 
         if read_bytes.get(2).unwrap().get_bit(RM_DB3_STEREO) {
             flags.sound_mode_flag = SoundMode::Stereo;

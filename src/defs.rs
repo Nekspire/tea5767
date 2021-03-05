@@ -88,7 +88,7 @@ pub enum DeemphasisTime {
 pub enum SearchStatus {
     /// Station has been found
     Success,
-    /// Station has not been found, band limit reached
+    /// Station has not been found and band limit has been reached
     Failure,
 }
 
