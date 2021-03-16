@@ -5,6 +5,7 @@
 
 # TEA5767
 Rust platform agnostic driver for the TEA5767, electronically tuned FM stereo radio. 
+
 An additional description can be found in the device datasheet.
 The datasheet is placed in [`doc`] folder of this repository.
 The driver is based on [`embedded-hal`] traits and I2C.
@@ -54,6 +55,6 @@ be dual licensed as above, without any additional terms or conditions.
 
 <!-- Badges -->
 [no-std-badge]: https://img.shields.io/badge/no__std-yes-blue
-[crates-io-badge]: https://img.shields.io/crates/v/...
-[docs-rs-badge]: https://docs.rs/.../badge.svg
-[crates-io-download-badge]: https://img.shields.io/crates/d/...svg?maxAge=3600
+[crates-io-badge]: https://img.shields.io/crates/v/tea5767
+[docs-rs-badge]: https://docs.rs/tea5767/badge.svg
+[crates-io-download-badge]: https://img.shields.io/crates/d/tea5767.svg?maxAge=3600
