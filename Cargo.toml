@@ -3,7 +3,14 @@ name = "tea5767"
 version = "0.1.0"
 authors = ["Nekspire <nekspire@gmail.com>"]
 edition = "2018"
+
+description = "Rust platform agnostic driver for the TEA5767, electronically tuned FM stereo radio"
+keywords = ["no-std", "tea5767", "radio", "embedded", "embedded-hal-driver", "fm"]
+categories  = ["embedded", "hardware-support", "no-std"]
 readme = "README.md"
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/tea5767"
+repository = "https://github.com/Nekspire/tea5767"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,5 +18,6 @@ readme = "README.md"
 embedded-hal = "0.2.4"
 bit_field = "0.10.1"
 micromath = "1.1.0"
+
 [dev-dependencies]
 # tests, benchmarks, examples
