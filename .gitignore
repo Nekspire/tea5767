@@ -1,2 +1,7 @@
 /target
 Cargo.lock
+/.idea/vcs.xml
+/.idea/tea5767.iml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/modules.xml
+/.idea/.gitignore
