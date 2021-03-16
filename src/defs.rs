@@ -92,5 +92,7 @@ pub enum SearchStatus {
     Failure,
 }
 
+/// Europe/US frequency band limit range (87.5, 108.0) MHz
 pub const BAND_LIMITS_EUROPE_US: (f32, f32) = (87.5, 108.0);
+/// Japanese frequency band limit range  (76.0, 91.0) MHz
 pub const BAND_LIMITS_JAPANESE: (f32, f32) = (76.0, 91.0);
