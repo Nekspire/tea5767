@@ -5,7 +5,7 @@ authors = ["Nekspire <nekspire@gmail.com>"]
 edition = "2018"
 
 description = "Rust platform agnostic driver for the TEA5767, electronically tuned FM stereo radio"
-keywords = ["no-std", "tea5767", "radio", "embedded", "embedded-hal-driver", "fm"]
+keywords = ["no-std", "radio", "embedded", "embedded-hal-driver", "fm"]
 categories  = ["embedded", "hardware-support", "no-std"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
