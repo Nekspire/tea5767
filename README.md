@@ -1,5 +1,5 @@
-![crates.io][crates-io-badge]
-![docs.rs][docs-rs-badge]
+[![crates.io][crates-io-badge]](https://crates.io/crates/tea5767)
+[![docs.rs][docs-rs-badge]](https://docs.rs/tea5767/0.1.0/tea5767/)
 ![No Std][no-std-badge]
 ![downloads][crates-io-download-badge]
 
@@ -55,6 +55,6 @@ be dual licensed as above, without any additional terms or conditions.
 
 <!-- Badges -->
 [no-std-badge]: https://img.shields.io/badge/no__std-yes-blue
-[crates-io-badge]: https://img.shields.io/crates/v/tea5767
+[crates-io-badge]: https://img.shields.io/crates/v/tea5767.svg
 [docs-rs-badge]: https://docs.rs/tea5767/badge.svg
 [crates-io-download-badge]: https://img.shields.io/crates/d/tea5767.svg?maxAge=3600
